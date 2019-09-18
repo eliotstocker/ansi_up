@@ -23,6 +23,7 @@ interface TextWithAttr {
     fg:AU_Color;
     bg:AU_Color;
     bold:boolean;
+    underline:boolean;
     text:string;
 }
 
@@ -41,7 +42,7 @@ enum PacketKind {
 interface TextPacket {
     kind:PacketKind;
     text:string;
-     url:string;
+    url:string;
 }
 
 //
@@ -64,6 +65,7 @@ class AnsiUp
     private fg:AU_Color;
     private bg:AU_Color;
     private bold:boolean;
+    private underline:boolean;
 
     private _use_classes:boolean;
 
@@ -83,6 +85,7 @@ class AnsiUp
         this._use_classes = false;
 
         this.bold = false;
+        this.underline = false;
         this.fg = this.bg = null;
 
         this._buffer = '';
@@ -192,7 +195,7 @@ class AnsiUp
             {
                 kind: PacketKind.EOS,
                 text: '',
-                 url: ''
+                url: ''
             } ;
 
         var len = this._buffer.length;
@@ -538,7 +541,7 @@ class AnsiUp
     }
 
     private with_state(pkt:TextPacket):TextWithAttr {
-        return { bold: this.bold, fg: this.fg, bg: this.bg, text: pkt.text };
+        return { bold: this.bold, underline: this.underline, fg: this.fg, bg: this.bg, text: pkt.text };
     }
 
     private process_ansi(pkt:TextPacket)
@@ -562,6 +565,10 @@ class AnsiUp
               this.bold = true;
           } else if (num === 22) {
               this.bold = false;
+          } else if (num === 4) {
+                this.underline = true;
+          } else if (num === 24) {
+                this.underline = false;
           } else if (num === 39) {
               this.fg = null;
           } else if (num === 49) {
@@ -573,7 +580,7 @@ class AnsiUp
           } else if ((num >= 90) && (num < 98)) {
               this.fg = this.ansi_colors[1][(num - 90)];
           } else if ((num >= 100) && (num < 108)) {
-            this.bg = this.ansi_colors[1][(num - 100)];
+              this.bg = this.ansi_colors[1][(num - 100)];
           } else if (num === 38 || num === 48) {
 
               // extended set foreground/background color
@@ -624,7 +631,7 @@ class AnsiUp
         txt = this.escape_txt_for_html(txt);
 
         // If colors not set, default style is used
-        if (!fragment.bold && fragment.fg === null && fragment.bg === null)
+        if (!fragment.bold && !fragment.underline && fragment.fg === null && fragment.bg === null)
             return txt;
 
         let styles:string[] = [];
@@ -636,6 +643,9 @@ class AnsiUp
         // Note on bold: https://stackoverflow.com/questions/6737005/what-are-some-advantages-to-using-span-style-font-weightbold-rather-than-b?rq=1
         if (fragment.bold)
             styles.push('font-weight:bold')
+
+        if (fragment.underline)
+            styles.push('text-decoration:underline')
 
         if (!this._use_classes) {
             // USE INLINE STYLES
