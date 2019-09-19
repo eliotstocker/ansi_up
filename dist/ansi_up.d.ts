@@ -7,6 +7,7 @@ export interface TextWithAttr {
     bg: AU_Color;
     bold: boolean;
     underline: boolean;
+    italic: boolean;
     text: string;
 }
 declare enum PacketKind {
@@ -31,6 +32,7 @@ export default class AnsiUp {
     private bg;
     private bold;
     private underline;
+    private italic;
     private _use_classes;
     private _csi_regex;
     private _osc_st;

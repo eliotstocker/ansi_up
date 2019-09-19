@@ -24,6 +24,7 @@ interface TextWithAttr {
     bg:AU_Color;
     bold:boolean;
     underline:boolean;
+    italic:boolean;
     text:string;
 }
 
@@ -66,6 +67,7 @@ class AnsiUp
     private bg:AU_Color;
     private bold:boolean;
     private underline:boolean;
+    private italic:boolean;
 
     private _use_classes:boolean;
 
@@ -86,6 +88,7 @@ class AnsiUp
 
         this.bold = false;
         this.underline = false;
+        this.italic = false;
         this.fg = this.bg = null;
 
         this._buffer = '';
@@ -541,7 +544,7 @@ class AnsiUp
     }
 
     private with_state(pkt:TextPacket):TextWithAttr {
-        return { bold: this.bold, underline: this.underline, fg: this.fg, bg: this.bg, text: pkt.text };
+        return { bold: this.bold, underline: this.underline, italic: this.italic, fg: this.fg, bg: this.bg, text: pkt.text };
     }
 
     private process_ansi(pkt:TextPacket)
@@ -561,14 +564,20 @@ class AnsiUp
           if (isNaN(num) || num === 0) {
               this.fg = this.bg = null;
               this.bold = false;
+              this.italic = false;
+              this.underline = false;
           } else if (num === 1) {
               this.bold = true;
           } else if (num === 22) {
               this.bold = false;
           } else if (num === 4) {
-                this.underline = true;
+              this.underline = true;
           } else if (num === 24) {
-                this.underline = false;
+              this.underline = false;
+          } else if (num === 3) {
+              this.italic = true;
+          } else if (num === 3) {
+              this.italic = false;
           } else if (num === 39) {
               this.fg = null;
           } else if (num === 49) {
@@ -631,7 +640,7 @@ class AnsiUp
         txt = this.escape_txt_for_html(txt);
 
         // If colors not set, default style is used
-        if (!fragment.bold && !fragment.underline && fragment.fg === null && fragment.bg === null)
+        if (!fragment.bold && !fragment.underline && !fragment.italic && fragment.fg === null && fragment.bg === null)
             return txt;
 
         let styles:string[] = [];
@@ -642,10 +651,13 @@ class AnsiUp
 
         // Note on bold: https://stackoverflow.com/questions/6737005/what-are-some-advantages-to-using-span-style-font-weightbold-rather-than-b?rq=1
         if (fragment.bold)
-            styles.push('font-weight:bold')
+            styles.push('font-weight:bold');
 
         if (fragment.underline)
-            styles.push('text-decoration:underline')
+            styles.push('text-decoration:underline');
+
+        if (fragment.italic)
+            styles.push('font-style:italic');
 
         if (!this._use_classes) {
             // USE INLINE STYLES
