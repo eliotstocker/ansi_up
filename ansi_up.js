@@ -38,6 +38,8 @@ var AnsiUp = (function () {
         this.setup_palettes();
         this._use_classes = false;
         this.bold = false;
+        this.underline = false;
+        this.italic = false;
         this.fg = this.bg = null;
         this._buffer = '';
         this._url_whitelist = { 'http': 1, 'https': 1 };
@@ -227,7 +229,7 @@ var AnsiUp = (function () {
                     }
                 }
                 if (!this._osc_regex) {
-                    this._osc_regex = rgx(__makeTemplateObject(["\n                        ^                           # beginning of line\n                                                    #\n                        \u001B]8;                    # OSC Hyperlink\n                        [ -:<-~]*       # params (excluding ;)\n                        ;                           # end of params\n                        ([!-~]{0,512})        # URL capture\n                        (?:                         # ST\n                          (?:\u001B\\)                  # ESC                           |                           # alternate\n                          (?:\u0007)                    # BEL (what xterm did)\n                        )\n                        ([ -~]+)              # TEXT capture\n                        \u001B]8;;                   # OSC Hyperlink End\n                        (?:                         # ST\n                          (?:\u001B\\)                  # ESC                           |                           # alternate\n                          (?:\u0007)                    # BEL (what xterm did)\n                        )\n                    "], ["\n                        ^                           # beginning of line\n                                                    #\n                        \\x1b\\]8;                    # OSC Hyperlink\n                        [\\x20-\\x3a\\x3c-\\x7e]*       # params (excluding ;)\n                        ;                           # end of params\n                        ([\\x21-\\x7e]{0,512})        # URL capture\n                        (?:                         # ST\n                          (?:\\x1b\\\\)                  # ESC \\\n                          |                           # alternate\n                          (?:\\x07)                    # BEL (what xterm did)\n                        )\n                        ([\\x20-\\x7e]+)              # TEXT capture\n                        \\x1b\\]8;;                   # OSC Hyperlink End\n                        (?:                         # ST\n                          (?:\\x1b\\\\)                  # ESC \\\n                          |                           # alternate\n                          (?:\\x07)                    # BEL (what xterm did)\n                        )\n                    "]));
+                    this._osc_regex = rgx(__makeTemplateObject(["\n                        ^                           # beginning of line\n                                                    #\n                        \u001B]8;                    # OSC Hyperlink\n                        [ -:<-~]*       # params (excluding ;)\n                        ;                           # end of params\n                        ([!-~]{0,512})        # URL capture\n                        (?:                         # ST\n                          (?:\u001B\\)                  # ESC                           |                           # alternate\n                          (?:\u0007)                    # BEL (what xterm did)\n                        )\n                        (.+)              # TEXT capture\n                        \u001B]8;;                   # OSC Hyperlink End\n                        (?:                         # ST\n                          (?:\u001B\\)                  # ESC                           |                           # alternate\n                          (?:\u0007)                    # BEL (what xterm did)\n                        )\n                    "], ["\n                        ^                           # beginning of line\n                                                    #\n                        \\x1b\\]8;                    # OSC Hyperlink\n                        [\\x20-\\x3a\\x3c-\\x7e]*       # params (excluding ;)\n                        ;                           # end of params\n                        ([\\x21-\\x7e]{0,512})        # URL capture\n                        (?:                         # ST\n                          (?:\\x1b\\\\)                  # ESC \\\n                          |                           # alternate\n                          (?:\\x07)                    # BEL (what xterm did)\n                        )\n                        (.+)              # TEXT capture\n                        \\x1b\\]8;;                   # OSC Hyperlink End\n                        (?:                         # ST\n                          (?:\\x1b\\\\)                  # ESC \\\n                          |                           # alternate\n                          (?:\\x07)                    # BEL (what xterm did)\n                        )\n                    "]));
                 }
                 var match = this._buffer.match(this._osc_regex);
                 if (match === null) {
@@ -266,7 +268,7 @@ var AnsiUp = (function () {
         return blocks.join("");
     };
     AnsiUp.prototype.with_state = function (pkt) {
-        return { bold: this.bold, fg: this.fg, bg: this.bg, text: pkt.text };
+        return { bold: this.bold, underline: this.underline, italic: this.italic, fg: this.fg, bg: this.bg, text: pkt.text };
     };
     AnsiUp.prototype.process_ansi = function (pkt) {
         var sgr_cmds = pkt.text.split(';');
@@ -276,12 +278,26 @@ var AnsiUp = (function () {
             if (isNaN(num) || num === 0) {
                 this.fg = this.bg = null;
                 this.bold = false;
+                this.italic = false;
+                this.underline = false;
             }
             else if (num === 1) {
                 this.bold = true;
             }
             else if (num === 22) {
                 this.bold = false;
+            }
+            else if (num === 4) {
+                this.underline = true;
+            }
+            else if (num === 24) {
+                this.underline = false;
+            }
+            else if (num === 3) {
+                this.italic = true;
+            }
+            else if (num === 3) {
+                this.italic = false;
             }
             else if (num === 39) {
                 this.fg = null;
@@ -335,7 +351,7 @@ var AnsiUp = (function () {
         if (txt.length === 0)
             return txt;
         txt = this.escape_txt_for_html(txt);
-        if (!fragment.bold && fragment.fg === null && fragment.bg === null)
+        if (!fragment.bold && !fragment.underline && !fragment.italic && fragment.fg === null && fragment.bg === null)
             return txt;
         var styles = [];
         var classes = [];
@@ -343,6 +359,10 @@ var AnsiUp = (function () {
         var bg = fragment.bg;
         if (fragment.bold)
             styles.push('font-weight:bold');
+        if (fragment.underline)
+            styles.push('text-decoration:underline');
+        if (fragment.italic)
+            styles.push('font-style:italic');
         if (!this._use_classes) {
             if (fg)
                 styles.push("color:rgb(" + fg.rgb.join(',') + ")");
@@ -382,7 +402,7 @@ var AnsiUp = (function () {
             return '';
         if (!this._url_whitelist[parts[0]])
             return '';
-        var result = "<a href=\"" + this.escape_txt_for_html(pkt.url) + "\">" + this.escape_txt_for_html(pkt.text) + "</a>";
+        var result = "<a href=\"" + this.escape_txt_for_html(pkt.url) + "\">" + this.ansi_to_html(pkt.text) + "</a>";
         return result;
     };
     return AnsiUp;
