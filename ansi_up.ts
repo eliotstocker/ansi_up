@@ -473,7 +473,7 @@ class AnsiUp
                           |                           # alternate
                           (?:\x07)                    # BEL (what xterm did)
                         )
-                        ([\x20-\x7e]+)              # TEXT capture
+                        (.+)              # TEXT capture
                         \x1b\]8;;                   # OSC Hyperlink End
                         (?:                         # ST
                           (?:\x1b\\)                  # ESC \
@@ -705,7 +705,7 @@ class AnsiUp
         if (! this._url_whitelist[parts[0]])
             return '';
 
-        let result = `<a href="${this.escape_txt_for_html(pkt.url)}">${this.escape_txt_for_html(pkt.text)}</a>`;
+        let result = `<a href="${this.escape_txt_for_html(pkt.url)}">${this.ansi_to_html(pkt.text)}</a>`;
         return result;
     }
 }
