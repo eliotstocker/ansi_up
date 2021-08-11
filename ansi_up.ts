@@ -192,7 +192,7 @@ class AnsiUp
         this._buffer = str;
     }
 
-    private get_next_packet():TextPacket {
+    private get_next_packet(context:any = this):TextPacket {
 
         var pkt =
             {
@@ -201,26 +201,26 @@ class AnsiUp
                 url: ''
             } ;
 
-        var len = this._buffer.length;
+        var len = context._buffer.length;
         if (len == 0)
             return pkt;
 
-        var pos = this._buffer.indexOf("\x1B");
+        var pos = context._buffer.indexOf("\x1B");
 
         // The most common case, no ESC codes
         if (pos == -1)
         {
             pkt.kind = PacketKind.Text;
-            pkt.text = this._buffer;
-            this._buffer = '';
+            pkt.text = context._buffer;
+            context._buffer = '';
             return pkt;
         }
 
         if (pos > 0)
         {
             pkt.kind = PacketKind.Text;
-            pkt.text = this._buffer.slice(0, pos);
-            this._buffer = this._buffer.slice(pos);
+            pkt.text = context._buffer.slice(0, pos);
+            context._buffer = context._buffer.slice(pos);
             return pkt;
         }
 
@@ -234,15 +234,15 @@ class AnsiUp
                 return pkt;
             }
 
-            var next_char = this._buffer.charAt(1);
+            var next_char = context._buffer.charAt(1);
 
             // We treat this as a single ESC
             // Which effecitvely shows
             if ((next_char != '[') && (next_char != ']')) // DeMorgan
             {
                 pkt.kind = PacketKind.ESC;
-                pkt.text = this._buffer.slice(0, 1);
-                this._buffer = this._buffer.slice(1);
+                pkt.text = context._buffer.slice(0, 1);
+                context._buffer = context._buffer.slice(1);
                 return pkt;
             }
 
@@ -287,7 +287,7 @@ class AnsiUp
                     `;
                 }
 
-                let match = this._buffer.match(this._csi_regex);
+                let match = context._buffer.match(this._csi_regex);
 
                 // This match is guaranteed to terminate (even on
                 // invalid input). The key is to match on legal and
@@ -317,8 +317,8 @@ class AnsiUp
                 {
                     // Illegal sequence, just remove the ESC
                     pkt.kind = PacketKind.ESC;
-                    pkt.text = this._buffer.slice(0, 1);
-                    this._buffer = this._buffer.slice(1);
+                    pkt.text = context._buffer.slice(0, 1);
+                    context._buffer = context._buffer.slice(1);
                     return pkt;
                 }
 
@@ -331,7 +331,7 @@ class AnsiUp
                 pkt.text = match[2] // Just the parameters
 
                 var rpos = match[0].length;
-                this._buffer = this._buffer.slice(rpos);
+                context._buffer = context._buffer.slice(rpos);
                 return pkt;
             }
 
@@ -344,13 +344,13 @@ class AnsiUp
                         return pkt;
                 }
 
-                if (    (this._buffer.charAt(2) != '8')
-                     || (this._buffer.charAt(3) != ';') )
+                if (    (context._buffer.charAt(2) != '8')
+                     || (context._buffer.charAt(3) != ';') )
                 {
                     // This is not a match, so we'll just treat it as ESC
                     pkt.kind = PacketKind.ESC;
-                    pkt.text = this._buffer.slice(0, 1);
-                    this._buffer = this._buffer.slice(1);
+                    pkt.text = context._buffer.slice(0, 1);
+                    context._buffer = context._buffer.slice(1);
                     return pkt;
                 }
 
@@ -410,7 +410,7 @@ class AnsiUp
 
 
                 {
-                    let match = this._osc_st.exec( this._buffer );
+                    let match = this._osc_st.exec( context._buffer );
 
                     if (match === null)
                     {
@@ -423,8 +423,8 @@ class AnsiUp
                     {
                         // Illegal sequence, just remove the ESC
                         pkt.kind = PacketKind.ESC;
-                        pkt.text = this._buffer.slice(0, 1);
-                        this._buffer = this._buffer.slice(1);
+                        pkt.text = context._buffer.slice(0, 1);
+                        context._buffer = context._buffer.slice(1);
                         return pkt;
                     }
                 }
@@ -436,7 +436,7 @@ class AnsiUp
                 // past this index
 
                 {
-                    let match = this._osc_st.exec( this._buffer );
+                    let match = this._osc_st.exec( context._buffer );
 
                     if (match === null)
                     {
@@ -449,8 +449,8 @@ class AnsiUp
                     {
                         // Illegal sequence, just remove the ESC
                         pkt.kind = PacketKind.ESC;
-                        pkt.text = this._buffer.slice(0, 1);
-                        this._buffer = this._buffer.slice(1);
+                        pkt.text = context._buffer.slice(0, 1);
+                        context._buffer = context._buffer.slice(1);
                         return pkt;
                     }
                 }
@@ -473,7 +473,7 @@ class AnsiUp
                           |                           # alternate
                           (?:\x07)                    # BEL (what xterm did)
                         )
-                        (.+)              # TEXT capture
+                        ([^\x07]+?)                       # TEXT capture
                         \x1b\]8;;                   # OSC Hyperlink End
                         (?:                         # ST
                           (?:\x1b\\)                  # ESC \
@@ -483,14 +483,14 @@ class AnsiUp
                     `;
                 }
 
-                let match = this._buffer.match(this._osc_regex);
+                let match = context._buffer.match(this._osc_regex);
 
                 if (match === null)
                 {
                     // Illegal sequence, just remove the ESC
                     pkt.kind = PacketKind.ESC;
-                    pkt.text = this._buffer.slice(0, 1);
-                    this._buffer = this._buffer.slice(1);
+                    pkt.text = context._buffer.slice(0, 1);
+                    context._buffer = context._buffer.slice(1);
                     return pkt;
                 }
 
@@ -505,29 +505,31 @@ class AnsiUp
                 pkt.text = match[2];
 
                 var rpos = match[0].length;
-                this._buffer = this._buffer.slice(rpos);
+                context._buffer = context._buffer.slice(rpos);
                 return pkt;
             }
         }
     }
 
     ansi_to_html(txt:string):string {
-
         this.append_buffer(txt);
+        return this.loop_over_packets();
+    }
 
+    private loop_over_packets(context:any = this):string {
         var blocks:string[] = [];
 
         while (true)
         {
-            var packet = this.get_next_packet();
+            var packet = this.get_next_packet(context);
 
             if (    (packet.kind == PacketKind.EOS)
-                 || (packet.kind == PacketKind.Incomplete)  )
+                || (packet.kind == PacketKind.Incomplete)  )
                 break;
 
             //Drop single ESC or Unknown CSI
             if (    (packet.kind == PacketKind.ESC)
-                 || (packet.kind == PacketKind.Unknown)  )
+                || (packet.kind == PacketKind.Unknown)  )
                 continue;
 
             if (packet.kind == PacketKind.Text)
@@ -705,8 +707,16 @@ class AnsiUp
         if (! this._url_whitelist[parts[0]])
             return '';
 
-        let result = `<a href="${this.escape_txt_for_html(pkt.url)}">${this.ansi_to_html(pkt.text)}</a>`;
+        let result = `<a href="${this.escape_txt_for_html(pkt.url)}">${this.sub_string_to_html(pkt.text)}</a>`;
         return result;
+    }
+
+    private sub_string_to_html(text:string):string {
+        const context = {
+            _buffer: text + ''
+        }
+
+        return this.loop_over_packets(context);
     }
 }
 

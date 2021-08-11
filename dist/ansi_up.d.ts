@@ -49,10 +49,12 @@ export default class AnsiUp {
     private append_buffer;
     private get_next_packet;
     ansi_to_html(txt: string): string;
+    private loop_over_packets;
     private with_state;
     private process_ansi;
     private transform_to_html;
     private process_hyperlink;
+    private sub_string_to_html;
 }
 declare function rgx(tmplObj: any, ...subst: any[]): RegExp;
 declare function rgxG(tmplObj: any, ...subst: any[]): RegExp;
